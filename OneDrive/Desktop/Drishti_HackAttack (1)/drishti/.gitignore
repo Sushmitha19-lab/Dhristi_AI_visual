@@ -1,0 +1,4 @@
+ml/dataset/
+ml/my_photos/
+__pycache__/
+*.pyc

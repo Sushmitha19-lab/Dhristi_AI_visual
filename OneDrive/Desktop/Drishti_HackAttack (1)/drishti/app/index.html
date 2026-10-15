@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#121838">
+  <meta name="description" content="Drishti - a free, voice-first AI companion that helps visually impaired people sense obstacles, find washrooms and exits, read text and locate belongings.">
+  <title>Drishti – AI Eyes</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <!-- Atkinson Hyperlegible: designed by the Braille Institute for low-vision readers -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- ============ Start screen (a tap is needed to unlock camera, sound and speech) ============ -->
+  <section id="startScreen" class="start" aria-labelledby="startTitle">
+    <canvas id="startRadar" class="start-radar" aria-hidden="true"></canvas>
+    <div class="start-copy">
+      <h1 id="startTitle">Drishti</h1>
+      <p class="start-lede">Hear the room around you. Obstacles, signs, text and your things, spoken out loud.</p>
+      <button id="startBtn" class="start-btn">Tap anywhere to start</button>
+      <ul class="start-howto" aria-label="How to use">
+        <li><b>Tap</b> the screen to hear what’s around you</li>
+        <li><b>Double tap</b> to read text and signs</li>
+        <li><b>Press and hold</b> to say a command, like “find bottle”</li>
+      </ul>
+      <p class="start-note">Wear headphones: sounds on your left come from the left ear.</p>
+    </div>
+  </section>
+
+  <main id="app" hidden>
+    <header class="top">
+      <div class="brand"><svg viewBox="0 0 64 64" width="30" height="30" aria-hidden="true"><path d="M4 32C16 12 48 12 60 32 48 52 16 52 4 32Z" fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="round"/><circle cx="32" cy="32" r="10" fill="currentColor"/></svg>Drishti</div>
+      <div class="status" aria-label="System status">
+        <span id="statusModels" class="pill">Loading vision…</span>
+        <span id="statusSign" class="pill">Sign model…</span>
+      </div>
+      <button id="btnSettings" class="ghost" aria-expanded="false" aria-controls="settings">Settings</button>
+    </header>
+
+    <!-- Camera: the whole area is a gesture surface -->
+    <div id="stage" class="stage" role="application" aria-label="Camera view. Tap to describe surroundings. Double tap to read text. Press and hold to speak a command.">
+      <video id="video" playsinline muted autoplay></video>
+      <canvas id="overlay"></canvas>
+      <div id="modeBadge" class="mode-chip" aria-hidden="true">Ready</div>
+      <div id="nearest" class="nearest" aria-hidden="true" hidden>
+        <span id="nearestVal" class="nearest-val">–</span>
+        <span id="nearestLbl" class="nearest-lbl">nearest</span>
+      </div>
+      <div id="loading" class="loading" aria-hidden="true">Loading AI models on your device…</div>
+    </div>
+
+    <!-- Radar: top-down view of what the camera sees (the same thing the sounds describe) -->
+    <figure class="radar-wrap" aria-hidden="true">
+      <canvas id="radar"></canvas>
+      <figcaption>Top-down view · rings every metre</figcaption>
+    </figure>
+
+    <section class="speech" aria-label="What Drishti said">
+      <div id="caption" class="caption" aria-live="polite" aria-atomic="true">Starting…</div>
+      <ol id="history" class="history" aria-label="Earlier messages"></ol>
+    </section>
+
+    <nav class="modes" aria-label="Modes">
+      <button id="btnGuard" class="mode" aria-pressed="false">
+        <span class="mode-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/></svg></span>
+        <span class="mode-name">Guard</span><span class="mode-hint">Beeps and warns about obstacles</span><kbd>G</kbd>
+      </button>
+      <button id="btnDescribe" class="mode">
+        <span class="mode-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z"/><circle cx="12" cy="12" r="3.5"/></svg></span>
+        <span class="mode-name">Describe</span><span class="mode-hint">Says what is around you</span><kbd>D</kbd>
+      </button>
+      <button id="btnRead" class="mode">
+        <span class="mode-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2 5h7a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H2V5Zm20 0h-7a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h8V5Z"/></svg></span>
+        <span class="mode-name">Read</span><span class="mode-hint">Reads signs, labels and boards</span><kbd>R</kbd>
+      </button>
+      <button id="btnFind" class="mode" aria-pressed="false">
+        <span class="mode-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 6 6"/></svg></span>
+        <span class="mode-name">Find</span><span class="mode-hint">Guides you to your things</span><kbd>F</kbd>
+      </button>
+      <button id="btnWashroom" class="mode" aria-pressed="false">
+        <span class="mode-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="7" cy="4" r="2"/><path d="M5 8h4v7H8v6H6v-6H5Z"/><circle cx="17" cy="4" r="2"/><path d="m15.5 8h3l2 8h-2.5v5h-2v-5H14Z"/></svg></span>
+        <span class="mode-name">Washroom</span><span class="mode-hint">Looks for washroom signs</span><kbd>W</kbd>
+      </button>
+      <button id="btnMic" class="mode mode-mic">
+        <span class="mode-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="8.5" y="2" width="7" height="12" rx="3.5"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg></span>
+        <span class="mode-name">Speak</span><span class="mode-hint">Say a command</span><kbd>V</kbd>
+      </button>
+      <button id="btnStop" class="stop">Stop <kbd>S</kbd></button>
+    </nav>
+
+    <!-- Find picker (for helpers and judges; users just say "find bottle") -->
+    <dialog id="findDialog" aria-labelledby="findTitle">
+      <h2 id="findTitle">What should I find?</h2>
+      <div id="findGrid" class="find-grid"></div>
+      <button id="findCancel" class="ghost">Cancel</button>
+    </dialog>
+
+    <section id="settings" class="settings" hidden aria-label="Settings">
+      <div class="settings-head"><h2>Settings</h2><button id="settingsDone" class="ghost">Done</button></div>
+      <button id="btnSoundTest" class="ghost wide">Test left and right sound</button>
+      <label class="row"><input id="setMirror" type="checkbox"> Front camera (mirror left and right)</label>
+      <label>Speech speed
+        <input id="setRate" type="range" min="0.6" max="1.8" step="0.1" value="1.1">
+      </label>
+      <label>Text reading languages
+        <select id="setOcrLang">
+          <option value="eng">English</option>
+          <option value="eng+hin">English + Hindi</option>
+          <option value="eng+kan">English + Kannada</option>
+          <option value="eng+hin+kan">English + Hindi + Kannada</option>
+        </select>
+      </label>
+      <label>Voice command language
+        <select id="setVoiceLang">
+          <option value="en-IN">English (India)</option>
+          <option value="en-US">English (US)</option>
+        </select>
+      </label>
+      <label class="row"><input id="setHaptics" type="checkbox" checked> Vibration alerts</label>
+      <label class="row"><input id="setBoxes" type="checkbox" checked> Show detection boxes</label>
+      <label class="row"><input id="setVerbose" type="checkbox"> Announce every object, not just obstacles</label>
+      <p class="help">
+        Voice commands: “guard”, “describe”, “read”, “find bottle”, “find washroom”, “find exit”, “stop”, “help”.<br>
+        Keys: G guard, D describe, R read, F find, W washroom, E exit, V voice, S stop, H help.
+      </p>
+    </section>
+  </main>
+
+  <!-- Open-source libraries (Apache 2.0). Cached by the service worker after first load. -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
